@@ -86,7 +86,7 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
         public void onVoice(byte[] data, int size) {
             if (mSpeechService != null) {
                mSpeechService.recognize(data, size);
-               attemptSend(data);
+              // attemptSend(data);
 
               /*  final File file = new File(Environment.getExternalStorageDirectory(), "recording.pcm");
                 OutputStream os = null;
@@ -535,8 +535,6 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
         }
 
     }
-
-
 
 
 }

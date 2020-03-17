@@ -32,21 +32,31 @@ import android.util.Log;
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.cloud.speech.v1.RecognitionAudio;
-import com.google.cloud.speech.v1.RecognitionConfig;
-import com.google.cloud.speech.v1.RecognizeRequest;
-import com.google.cloud.speech.v1.RecognizeResponse;
-import com.google.cloud.speech.v1.SpeechGrpc;
-import com.google.cloud.speech.v1.SpeechRecognitionAlternative;
-import com.google.cloud.speech.v1.SpeechRecognitionResult;
-import com.google.cloud.speech.v1.StreamingRecognitionConfig;
-import com.google.cloud.speech.v1.StreamingRecognitionResult;
-import com.google.cloud.speech.v1.StreamingRecognizeRequest;
-import com.google.cloud.speech.v1.StreamingRecognizeResponse;
+import com.google.cloud.android.speech.model.ConfigModel;
+import com.google.cloud.android.speech.model.FileNewResponse;
+import com.google.cloud.android.speech.model.MetadataModel;
+import com.google.cloud.speech.v1p1beta1.RecognitionAudio;
+import com.google.cloud.speech.v1p1beta1.RecognitionConfig;
+import com.google.cloud.speech.v1p1beta1.RecognitionMetadata;
+import com.google.cloud.speech.v1p1beta1.RecognizeResponse;
+import com.google.cloud.speech.v1p1beta1.SpeechGrpc;
+import com.google.cloud.speech.v1p1beta1.SpeechRecognitionAlternative;
+import com.google.cloud.speech.v1p1beta1.SpeechRecognitionResult;
+import com.google.cloud.speech.v1p1beta1.StreamingRecognitionConfig;
+import com.google.cloud.speech.v1p1beta1.StreamingRecognitionResult;
+import com.google.cloud.speech.v1p1beta1.StreamingRecognizeRequest;
+import com.google.cloud.speech.v1p1beta1.StreamingRecognizeResponse;
+import com.google.cloud.speech.v1p1beta1.RecognizeRequest;
+import com.google.gson.Gson;
 import com.google.protobuf.ByteString;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -293,8 +303,60 @@ public class SpeechService extends Service {
      * @param stream The audio data.
      */
     public void recognizeInputStream(InputStream stream) {
+        String recordingDeviceName = "Pixel 3";
+
+        FileNewResponse fileNewResponse =  getReadJsonFileData();
+        ConfigModel configModel  =  fileNewResponse.getRecognition_Config();
+        MetadataModel metadataModel  =  configModel.getMetadata();
+
+        // The use case of the audio, e.g. PHONE_CALL, DISCUSSION, PRESENTATION, et al.
+        RecognitionMetadata.InteractionType interactionType = RecognitionMetadata.InteractionType.VOICE_SEARCH;
+
+
+
+        // The kind of device used to capture the audio
+        RecognitionMetadata.RecordingDeviceType recordingDeviceType = RecognitionMetadata.RecordingDeviceType.SMARTPHONE;
+
+
+        // the kind of  medea type
+
+        RecognitionMetadata.OriginalMediaType originalMediaType = RecognitionMetadata.OriginalMediaType.AUDIO;
+
+
+        // the  kind of  common device used
+
+
+
+        RecognitionMetadata metadata =
+                RecognitionMetadata.newBuilder()
+                        .setInteractionType(interactionType)
+                        .setRecordingDeviceType(recordingDeviceType)
+                        .setOriginalMediaType(originalMediaType)
+                        .setRecordingDeviceName(recordingDeviceName)
+                        .build();
+
+        // Builds the sync recognize request
+        RecognitionConfig config = RecognitionConfig.newBuilder()
+                .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
+                .setSampleRateHertz(16000)
+                .setMetadata(metadata)
+                .setLanguageCode("en-US")
+                .build();
         try {
-            mApi.recognize(
+            RecognitionAudio audio = RecognitionAudio.newBuilder()
+                    .setContent(ByteString.readFrom(stream))
+                    .build();
+            RecognizeRequest request =
+                    RecognizeRequest.newBuilder().setConfig(config).setAudio(audio).build();
+
+           mApi.recognize(request,mFileResponseObserver);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try {
+
+
+           /* mApi.recognize(
                     RecognizeRequest.newBuilder()
                             .setConfig(RecognitionConfig.newBuilder()
                                     .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
@@ -305,10 +367,35 @@ public class SpeechService extends Service {
                                     .setContent(ByteString.readFrom(stream))
                                     .build())
                             .build(),
-                    mFileResponseObserver);
-        } catch (IOException e) {
+                    mFileResponseObserver);*/
+        } catch (Exception e) {
             Log.e(TAG, "Error loading the input", e);
         }
+    }
+
+
+    private FileNewResponse getReadJsonFileData() {
+        FileNewResponse response =null;
+        try {
+            InputStream is = getResources().openRawResource(R.raw.parameters_gcp);
+            Writer writer = new StringWriter();
+            char[] buffer = new char[1024];
+            try {
+                Reader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                int n;
+                while ((n = reader.read(buffer)) != -1) {
+                    writer.write(buffer, 0, n);
+                }
+            } finally {
+                is.close();
+            }
+            String jsonString = writer.toString();
+            response =  new Gson().fromJson(jsonString, FileNewResponse.class);
+            Log.d("data_string",jsonString);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return response;
     }
 
     private class SpeechBinder extends Binder {

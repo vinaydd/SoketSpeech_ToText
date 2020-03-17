@@ -18,17 +18,17 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.google.protobuf'
 
 ext {
-    supportLibraryVersion = '25.4.0'
-    grpcVersion = '1.4.0'
+    supportLibraryVersion = '26.0.0'
+    grpcVersion = '1.24.0'
 }
 
 android {
-    compileSdkVersion 25
-    buildToolsVersion '25.0.3'
+    compileSdkVersion 26
+    buildToolsVersion '26.0.3'
 
     defaultConfig {
         applicationId "com.google.cloud.android.speech"
-        targetSdkVersion 25
+        targetSdkVersion 26
         minSdkVersion  16
         versionCode 1
         versionName '1.0'
@@ -95,14 +95,15 @@ dependencies {
     compile "com.android.support:recyclerview-v7:$supportLibraryVersion"
 
     // gRPC
-    compile "io.grpc:grpc-okhttp:$grpcVersion"
-    compile "io.grpc:grpc-protobuf-lite:$grpcVersion"
-    compile "io.grpc:grpc-stub:$grpcVersion"
+     compile "io.grpc:grpc-okhttp:$grpcVersion"
+   // compile "io.grpc:grpc-protobuf-lite:$grpcVersion"
+  //  compile "io.grpc:grpc-stub:$grpcVersion"
+    compile'com.google.api.grpc:grpc-google-cloud-speech-v1p1beta1:0.42.0'
     compile 'javax.annotation:javax.annotation-api:1.2'
-    protobuf 'com.google.protobuf:protobuf-java:3.3.1'
+     protobuf 'com.google.protobuf:protobuf-java:3.6.1'
 
     // OAuth2 for Google API
-    compile('com.google.auth:google-auth-library-oauth2-http:0.7.0') {
+    compile('com.google.auth:google-auth-library-oauth2-http:0.9.0') {
         exclude module: 'httpclient'
     }
 

@@ -3,6 +3,7 @@ package com.google.cloud.android.speech;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.provider.Settings;
@@ -10,6 +11,7 @@ import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,9 +21,17 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import io.socket.client.IO;
 import io.socket.client.Socket;
@@ -51,6 +61,8 @@ public class NewActivityCllSS extends AppCompatActivity {
     private   String preText;
     private ResultAdapter mAdapter;
     private RecyclerView mRecyclerView;
+
+    Button  save;
 
     private Emitter.Listener onNewMessage = new Emitter.Listener() {
         @Override
@@ -93,6 +105,19 @@ public class NewActivityCllSS extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.new_activity);
         text = (TextView) findViewById(R.id.text);
+        save = (Button) findViewById(R.id.save);
+
+
+        goToReadTextFile();
+
+        save.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                 DownloadFilesTask downloadFilesTask = new DownloadFilesTask();
+                  downloadFilesTask.execute();
+            }
+        });
+
 
         Log.i(TAG, "Creating the Audio Client with minimum buffer of " + BUFFER_SIZE + " bytes");
         m_androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
@@ -127,6 +152,73 @@ public class NewActivityCllSS extends AppCompatActivity {
         mAdapter = new ResultAdapter(results);
         mRecyclerView.setAdapter(mAdapter);
     }
+
+    private void goToReadTextFile() {
+
+
+
+
+
+        try {
+            InputStream is = getResources().openRawResource(R.raw.phrases_android);
+            String str="";
+            StringBuffer buf = new StringBuffer();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+            if (is!=null) {
+                while ((str = reader.readLine()) != null) {
+                    System.out.println(str);
+                    buf.append(str + "\n" );
+                }
+            }
+            is.close();
+
+        }catch (Exception  e){
+
+        }
+    }
+
+
+
+
+    private class DownloadFilesTask extends AsyncTask<URL, Void, String> {
+        protected String doInBackground(URL... urls) {
+            return downloadRemoteTextFileContent();
+        }
+        protected void onPostExecute(String result) {
+            if(!TextUtils.isEmpty(result)){
+               System.out.println(result);
+            }
+        }
+    }
+
+    private String downloadRemoteTextFileContent(){
+        URL mUrl = null;
+        String content = "";
+        try {
+            mUrl = new URL("http://dev.woodlands.opdemr.myhealthcare.co/vinay/test.txt");
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+        try {
+            assert mUrl != null;
+            URLConnection connection = mUrl.openConnection();
+            BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            String line = "";
+            while((line = br.readLine()) != null){
+                content += line +"\n";
+            }
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return content;
+    }
+
+
+
+
+
+
     private void startStreamingAudio() {
         Log.i(TAG, "Starting the audio stream");
         gotojoinSoket();
