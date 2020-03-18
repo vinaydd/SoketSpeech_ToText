@@ -19,9 +19,10 @@ package com.google.cloud.android.speech;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatDialogFragment;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatDialogFragment;
 
 
 /**
@@ -31,7 +32,6 @@ import android.support.v7.app.AppCompatDialogFragment;
  * MessageDialogFragment.Listener}.</p>
  */
 public class MessageDialogFragment extends AppCompatDialogFragment {
-
     public interface Listener {
         /**
          * Called when the dialog is dismissed.
@@ -40,7 +40,6 @@ public class MessageDialogFragment extends AppCompatDialogFragment {
     }
 
     private static final String ARG_MESSAGE = "message";
-
     /**
      * Creates a new instance of {@link MessageDialogFragment}.
      *
@@ -54,7 +53,6 @@ public class MessageDialogFragment extends AppCompatDialogFragment {
         fragment.setArguments(args);
         return fragment;
     }
-
     @NonNull
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
@@ -74,5 +72,4 @@ public class MessageDialogFragment extends AppCompatDialogFragment {
                 })
                 .create();
     }
-
 }

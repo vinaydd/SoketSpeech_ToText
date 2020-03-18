@@ -28,13 +28,6 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.provider.Settings;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.res.ResourcesCompat;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -43,6 +36,14 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.res.ResourcesCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.common.primitives.Bytes;
 import com.google.protobuf.ByteString;
@@ -72,12 +73,18 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
     private SpeechService mSpeechService;
     private VoiceRecorder mVoiceRecorder;
 
+    private  boolean subjectiveFlag;
+    private  boolean objectiveFlag;
+
     boolean isFlag = false;
     private final VoiceRecorder.Callback mVoiceCallback = new VoiceRecorder.Callback() {
         @Override
         public void onVoiceStart() {
             showStatus(true);
             if (mSpeechService != null) {
+
+
+
                 mSpeechService.startRecognizing(mVoiceRecorder.getSampleRate());
             }
         }
@@ -129,6 +136,9 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
     private ResultAdapter mAdapter;
     private RecyclerView mRecyclerView;
 
+    private  String subjectiveText ="";
+    private  String objectiveText="";
+
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
         @Override
@@ -148,11 +158,14 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
     String m_androidId;
 
     Socket mSocket;
+    TextView  subjective,objective;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        subjective  =  findViewById(R.id.subjective);
+        objective  =  findViewById(R.id.objective);
         m_androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
         {
             try {
@@ -160,10 +173,8 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
             } catch (URISyntaxException e) {
             }
         }
-
         mSocket.connect();
         System.out.println("soketconnected:::" + mSocket.connected());
-
         final Resources resources = getResources();
         final Resources.Theme theme = getTheme();
         mColorHearing = ResourcesCompat.getColor(resources, R.color.status_hearing, theme);
@@ -179,7 +190,6 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
                 savedInstanceState.getStringArrayList(STATE_RESULTS);
         mAdapter = new ResultAdapter(results);
         mRecyclerView.setAdapter(mAdapter);
-
 
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
@@ -221,15 +231,10 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
     private void attemptSend(byte[] data) {
         System.out.println(data);
       //  printBytes(data);
-
         String finalValues= printBytes(data);
         byte [] datas = printBytes(data).getBytes();
-       // System.out.println(finalValues);
-
-
+         // System.out.println(finalValues);
           //String  sdfs  = toCSV(data);
-
-
         try {
 
 
@@ -243,16 +248,11 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
 
             byte[] result = baos.toByteArray();
 
-
-
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("user_id", m_androidId);
             jsonObject.put("data", result);
            // jsonObject.put("source", "android");
-
             System.out.println(jsonObject);
-
-
             mSocket.emit("binaryData", jsonObject);
         } catch (Exception e) {
             Log.d("sqad", e.getMessage());
@@ -280,7 +280,6 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
     public  String printBytes(byte[] array) {
         String output ="";
         for (int k = 0; k < array.length; k++) {
-
           //  output   = output + "\0x" + UnicodeFormatter.byteToHex(array[k]);
             output   = "utf8Bytes" + "[" + k + "] = " + "0x" + UnicodeFormatter.byteToHex(array[k]);
            // System.out.println("utf8Bytes" + "[" + k + "] = " + "0x" + UnicodeFormatter.byteToHex(array[k]));
@@ -342,7 +341,6 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
         mSocket.disconnect();
         mSocket.off("speechData", onNewMessage);
     }
-
 
     private Emitter.Listener onNewMessage = new Emitter.Listener() {
         @Override
@@ -478,9 +476,39 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
                     public void run() {
                         if (isFinal) {
                             mText.setText(null);
-                            mAdapter.addResult(text);
-                            mRecyclerView.smoothScrollToPosition(0);
+                          //  mAdapter.addResult(text);
+                         //   mRecyclerView.smoothScrollToPosition(0);
                         } else {
+                            //chief complaints   review of systems
+                            if(text.contains("chief complaints") || text.toLowerCase().contains("chief")||text.toLowerCase().contains("complaints")){
+                                subjectiveFlag = true;
+                                objectiveFlag = false;
+                            } else if(text.contains("review of systems")||text.toLowerCase().contains("review")  ||text.toLowerCase().contains("systems")){
+                                subjectiveFlag = false;
+                                objectiveFlag = true;
+                            }
+
+
+                            if(subjectiveFlag){
+                                subjectiveText=  subjectiveText +" "+ text;
+                                subjective.setText(subjectiveText
+
+                                        .replaceAll("chief complaints"," ")
+                                        .replaceAll("Chief Complaints"," ")
+                                        .replaceAll("chief complaint"," ")
+                                        .replaceAll("Chief Complaint"," ")
+
+                                        );
+                            }
+
+                            if(objectiveFlag){
+                                objectiveText=  objectiveText +" "+ text;
+                                objective.setText(objectiveText
+                                        .replaceAll("review of system"," ")
+                                        .replaceAll("Review of Systems"," ")
+                                        .replaceAll("Review of System"," ")
+                                        .replaceAll("review of systems"," "));
+                            }
                             mText.setText(text);
                         }
                     }
@@ -491,7 +519,7 @@ public class MainActivity extends AppCompatActivity implements MessageDialogFrag
 
     private static class ViewHolder extends RecyclerView.ViewHolder {
 
-        TextView text;
+       private TextView text;
 
         ViewHolder(LayoutInflater inflater, ViewGroup parent) {
             super(inflater.inflate(R.layout.item_result, parent, false));

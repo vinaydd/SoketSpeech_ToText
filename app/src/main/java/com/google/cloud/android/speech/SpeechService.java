@@ -1,18 +1,3 @@
-/*
- * Copyright (C) 2017 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 
 package com.google.cloud.android.speech;
 
@@ -24,10 +9,12 @@ import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.AccessToken;
@@ -35,6 +22,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.android.speech.model.ConfigModel;
 import com.google.cloud.android.speech.model.FileNewResponse;
 import com.google.cloud.android.speech.model.MetadataModel;
+import com.google.cloud.speech.v1p1beta1.SpeechContext;
 import com.google.cloud.speech.v1p1beta1.RecognitionAudio;
 import com.google.cloud.speech.v1p1beta1.RecognitionConfig;
 import com.google.cloud.speech.v1p1beta1.RecognitionMetadata;
@@ -57,9 +45,13 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -84,7 +76,6 @@ import io.grpc.stub.StreamObserver;
 
 public class SpeechService extends Service {
     public interface Listener {
-
         /**
          * Called when a new piece of text was recognized by the Speech API.
          *
@@ -96,7 +87,6 @@ public class SpeechService extends Service {
     }
 
     private static final String TAG = "SpeechService";
-
     private static final String PREFS = "SpeechService";
     private static final String PREF_ACCESS_TOKEN_VALUE = "access_token_value";
     private static final String PREF_ACCESS_TOKEN_EXPIRATION_TIME = "access_token_expiration_time";
@@ -115,6 +105,9 @@ public class SpeechService extends Service {
     private volatile AccessTokenTask mAccessTokenTask;
     private SpeechGrpc.SpeechStub mApi;
     private static Handler mHandler;
+    List<String> finelresult =  new ArrayList<>();
+    FileNewResponse fileNewResponse;
+
 
     private final StreamObserver<StreamingRecognizeResponse> mResponseObserver = new StreamObserver<StreamingRecognizeResponse>() {
         @Override
@@ -255,18 +248,14 @@ public class SpeechService extends Service {
             return;
         }
         // Configure the API
-        mRequestObserver = mApi.streamingRecognize(mResponseObserver);
-        mRequestObserver.onNext(StreamingRecognizeRequest.newBuilder()
-                .setStreamingConfig(StreamingRecognitionConfig.newBuilder()
-                        .setConfig(RecognitionConfig.newBuilder()
-                                .setLanguageCode(getDefaultLanguageCode())
-                                .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
-                                .setSampleRateHertz(sampleRate)
-                                .build())
-                        .setInterimResults(true)
-                        .setSingleUtterance(true)
-                        .build())
-                .build());
+        if(finelresult!=null && finelresult.size()>0){
+            getServiceBuilderClass(finelresult);
+        }else {
+            DownloadFilesTask downloadFilesTask = new DownloadFilesTask();
+            downloadFilesTask.execute();
+        }
+      //  getServiceBuilderClass(null);
+
     }
 
     /**
@@ -304,32 +293,30 @@ public class SpeechService extends Service {
      */
     public void recognizeInputStream(InputStream stream) {
         String recordingDeviceName = "Pixel 3";
+        ConfigModel configModel;
+        if(fileNewResponse !=null && fileNewResponse.getRecognition_Config()!=null){
+              Log.d("result","true");
+             configModel  =  fileNewResponse.getRecognition_Config();
+             MetadataModel metadataModel  =  configModel.getMetadata();
+        }else {
+            Log.d("result","false");
+             fileNewResponse =  getReadJsonFileData();
+             configModel  =  fileNewResponse.getRecognition_Config();
+             MetadataModel metadataModel  =  configModel.getMetadata();
+        }
 
-        FileNewResponse fileNewResponse =  getReadJsonFileData();
-        ConfigModel configModel  =  fileNewResponse.getRecognition_Config();
-        MetadataModel metadataModel  =  configModel.getMetadata();
 
-        // The use case of the audio, e.g. PHONE_CALL, DISCUSSION, PRESENTATION, et al.
+       // The use case of the audio, e.g. PHONE_CALL, DISCUSSION, PRESENTATION, et al.
         RecognitionMetadata.InteractionType interactionType = RecognitionMetadata.InteractionType.VOICE_SEARCH;
-
-
 
         // The kind of device used to capture the audio
         RecognitionMetadata.RecordingDeviceType recordingDeviceType = RecognitionMetadata.RecordingDeviceType.SMARTPHONE;
 
-
         // the kind of  medea type
-
         RecognitionMetadata.OriginalMediaType originalMediaType = RecognitionMetadata.OriginalMediaType.AUDIO;
 
 
-        // the  kind of  common device used
-
-
-
-        RecognitionMetadata metadata =
-                RecognitionMetadata.newBuilder()
-                        .setInteractionType(interactionType)
+        RecognitionMetadata metadata = RecognitionMetadata.newBuilder().setInteractionType(interactionType)
                         .setRecordingDeviceType(recordingDeviceType)
                         .setOriginalMediaType(originalMediaType)
                         .setRecordingDeviceName(recordingDeviceName)
@@ -338,9 +325,9 @@ public class SpeechService extends Service {
         // Builds the sync recognize request
         RecognitionConfig config = RecognitionConfig.newBuilder()
                 .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
-                .setSampleRateHertz(16000)
+                .setSampleRateHertz(configModel.getSample_rate_hertz())
                 .setMetadata(metadata)
-                .setLanguageCode("en-US")
+                .setLanguageCode(configModel.getLanguage_code())
                 .build();
         try {
             RecognitionAudio audio = RecognitionAudio.newBuilder()
@@ -354,8 +341,6 @@ public class SpeechService extends Service {
             e.printStackTrace();
         }
         try {
-
-
            /* mApi.recognize(
                     RecognizeRequest.newBuilder()
                             .setConfig(RecognitionConfig.newBuilder()
@@ -371,6 +356,91 @@ public class SpeechService extends Service {
         } catch (Exception e) {
             Log.e(TAG, "Error loading the input", e);
         }
+    }
+
+
+    // get  download phreshes from api to set grpc
+
+    private class DownloadFilesTask extends AsyncTask<URL, Void, List< String>> {
+        protected List<String> doInBackground(URL... urls) {
+            return downloadRemoteTextFileContent();
+        }
+        protected void onPostExecute(List<String> result) {
+            if(!result.isEmpty() && result!=null && result.size()>0){
+
+                finelresult = result;
+                getServiceBuilderClass(result);
+            }
+        }
+    }
+
+    private void getServiceBuilderClass(List<String> phrases) {
+        ConfigModel configModel;
+        SpeechContext speechContext = SpeechContext.newBuilder().addAllPhrases(phrases).build();
+        List<SpeechContext> speechContexts = Arrays.asList(speechContext);
+        String recordingDeviceName = "Pixel 3";
+
+        if(fileNewResponse !=null && fileNewResponse.getRecognition_Config()!=null){
+            configModel  =  fileNewResponse.getRecognition_Config();
+            MetadataModel metadataModel  =  configModel.getMetadata();
+        }else {
+            fileNewResponse =  getReadJsonFileData();
+            configModel  =  fileNewResponse.getRecognition_Config();
+            MetadataModel metadataModel  =  configModel.getMetadata();
+        }
+
+        // The use case of the audio, e.g. PHONE_CALL, DISCUSSION, PRESENTATION, et al.
+        RecognitionMetadata.InteractionType interactionType = RecognitionMetadata.InteractionType.VOICE_SEARCH;
+
+        // The kind of device used to capture the audio
+        RecognitionMetadata.RecordingDeviceType recordingDeviceType = RecognitionMetadata.RecordingDeviceType.SMARTPHONE;
+
+        // the kind of  medea type
+        RecognitionMetadata.OriginalMediaType originalMediaType = RecognitionMetadata.OriginalMediaType.AUDIO;
+
+
+        RecognitionMetadata metadata = RecognitionMetadata.newBuilder().setInteractionType(interactionType)
+                .setRecordingDeviceType(recordingDeviceType)
+                .setOriginalMediaType(originalMediaType)
+                .setRecordingDeviceName(recordingDeviceName)
+                .build();
+
+        mRequestObserver = mApi.streamingRecognize(mResponseObserver);
+        mRequestObserver.onNext(StreamingRecognizeRequest.newBuilder().setStreamingConfig(StreamingRecognitionConfig.newBuilder().setConfig(RecognitionConfig.newBuilder()
+                .setLanguageCode(configModel.getLanguage_code())
+                .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
+                .setSampleRateHertz(configModel.getSample_rate_hertz())
+                .setMetadata(metadata)
+                .addAllSpeechContexts(speechContexts)
+                .build())
+                .setInterimResults(true)
+                .setSingleUtterance(true)
+                .build())
+                .build());
+
+    }
+
+    private List<String> downloadRemoteTextFileContent(){
+        URL mUrl = null;
+        List<String> content = new ArrayList<>();
+        try {
+            mUrl = new URL("http://dev.woodlands.opdemr.myhealthcare.co/vinay/test.txt");
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+        try {
+            assert mUrl != null;
+            URLConnection connection = mUrl.openConnection();
+            BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            String line = "";
+            while((line = br.readLine()) != null){
+                content.add(line);
+            }
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return content;
     }
 
 
@@ -391,7 +461,7 @@ public class SpeechService extends Service {
             }
             String jsonString = writer.toString();
             response =  new Gson().fromJson(jsonString, FileNewResponse.class);
-            Log.d("data_string",jsonString);
+           // Log.d("data_string",jsonString);
         }catch (Exception e){
             e.printStackTrace();
         }
@@ -421,7 +491,6 @@ public class SpeechService extends Service {
                     getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             String tokenValue = prefs.getString(PREF_ACCESS_TOKEN_VALUE, null);
             long expirationTime = prefs.getLong(PREF_ACCESS_TOKEN_EXPIRATION_TIME, -1);
-
             // Check if the current token is still valid for a while
             if (tokenValue != null && expirationTime > 0) {
                 if (expirationTime
@@ -429,7 +498,6 @@ public class SpeechService extends Service {
                     return new AccessToken(tokenValue, new Date(expirationTime));
                 }
             }
-
             // ***** WARNING *****
             // In this sample, we load the credential from a JSON file stored in a raw resource
             // folder of this client app. You should never do this in your app. Instead, store

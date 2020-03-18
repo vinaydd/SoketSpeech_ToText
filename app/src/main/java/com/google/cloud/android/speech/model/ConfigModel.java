@@ -8,7 +8,7 @@ public class ConfigModel implements Serializable {
     private int sample_rate_hertz;
     private boolean word_confidence;
     private int alternative_languages;
-    private int alternative_languages_code;
+    private String alternative_languages_code;
 
     public MetadataModel getMetadata() {
         return metadata;
@@ -60,11 +60,11 @@ public class ConfigModel implements Serializable {
         this.alternative_languages = alternative_languages;
     }
 
-    public int getAlternative_languages_code() {
+    public String getAlternative_languages_code() {
         return alternative_languages_code;
     }
 
-    public void setAlternative_languages_code(int alternative_languages_code) {
+    public void setAlternative_languages_code(String alternative_languages_code) {
         this.alternative_languages_code = alternative_languages_code;
     }
 
